@@ -559,7 +559,8 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     // phones: the board sits under the chips instead of off the right edge
     chess.position.x = narrow ? 0.6 : chess.userData.baseX * (0.45 + 0.55 * squeeze);
     chess.position.y = narrow ? -4.2 : -2.0;
-    chess.scale.setScalar(narrow ? 0.62 : 0.95);
+    chess.userData.baseScale = narrow ? 0.62 : 0.95;
+    chess.scale.setScalar(chess.userData.baseScale);
     dMat.uniforms.uPR.value = pr;
     bills.setPixelRatio(pr);
   }
@@ -570,6 +571,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   // so the first scroll (when notes ignite and new objects come into view) never hitches
   renderer.compile(scene, camera);
   const cullables = [...new Set([...sideObjects, ...spinners.map((x) => x.obj), ...tumblers.map((x) => x.obj), orb, shell])];
+  for (const o of cullables) if (o.userData.baseScale === undefined) o.userData.baseScale = o.scale.x;
   for (const tex of [notes.front, notes.back]) renderer.initTexture(tex);
 
   const mouse = new THREE.Vector2();
@@ -679,9 +681,14 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
       const res = bills.update(time, dt, s);
 
       // draw only what is near the camera: far sections are lost in the fog anyway
+      // objects switch on deep in the fog and grow from a point to full size as you approach,
+      // so nothing pops into view
       for (const o of cullables) {
         const ahead = camZ - o.position.z;
-        o.visible = ahead > -8 && ahead < 52 && !(o.userData.burn && o.userData.burn.uBurn.value >= 0.995);
+        o.visible = ahead > -8 && ahead < 78 && !(o.userData.burn && o.userData.burn.uBurn.value >= 0.995);
+        if (!o.visible) continue;
+        const k = THREE.MathUtils.smoothstep(78 - ahead, 0, 26); // 0 at the far edge, 1 from 52 units in
+        o.scale.setScalar(o.userData.baseScale * Math.max(0.001, k));
       }
 
       finalPass.uniforms.uTime.value = time;
