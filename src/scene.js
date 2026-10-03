@@ -506,7 +506,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
 
   /* ---------- the money ---------- */
   const bills = createBills(scene, {
-    count: isMobile ? 48 : 72,
+    count: isMobile ? 48 : 96,
     depth: 46,
     gap: GAP,
     pixelRatio: pr,
