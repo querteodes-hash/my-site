@@ -531,7 +531,8 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   document.body.appendChild(lvhProbe);
   function resize() {
     const w = window.innerWidth;
-    const h = isMobile ? Math.max(lvhProbe.offsetHeight, window.innerHeight) : window.innerHeight;
+    // render exactly as tall as the canvas really is (large viewport on phones, incl. full-screen mode)
+    const h = isMobile ? Math.max(canvas.clientHeight, lvhProbe.offsetHeight, window.innerHeight) : window.innerHeight;
     // mobile browsers resize the viewport whenever the address bar slides in or out;
     // ignore those height-only nudges so the scene does not jump while scrolling
     if (isMobile && w === lastW && Math.abs(h - lastH) < 180) return;

@@ -28,6 +28,7 @@
 html,
 body {
   margin: 0;
+  background: #040505;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--f-display);
@@ -80,13 +81,25 @@ em .c {
   outline-offset: 4px;
 }
 
+/* black backdrop far past every edge, so no browser chrome can ever reveal a grey strip */
+body::before {
+  content: '';
+  position: fixed;
+  top: -50vh;
+  bottom: -50vh;
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  z-index: -2;
+  pointer-events: none;
+}
 #webgl {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100vh;
-  height: 100lvh;
+  height: max(100lvh, 100vh, 100%);
   display: block;
   z-index: 0;
 }
