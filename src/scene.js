@@ -181,26 +181,6 @@ void main(){
   gl_FragColor = vec4(c * (0.35 + vD * 1.3) + f * vec3(1.0, 0.45, 0.15) * 0.9, 1.0);
 }`;
 
-const pointSphereVS = /* glsl */ `
-uniform float uTime;
-uniform float uPR;
-attribute float aSeed;
-varying float vA;
-void main(){
-  vec3 p = position * (1.0 + 0.06 * sin(uTime * 1.5 + aSeed * 12.0 + position.y * 2.0));
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  gl_PointSize = (1.5 + aSeed * 3.0) * uPR * (14.0 / -mv.z);
-  vA = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(uTime * 2.0 + aSeed * 40.0), 3.0);
-  gl_Position = projectionMatrix * mv;
-}`;
-const pointSphereFS = /* glsl */ `
-varying float vA;
-void main(){
-  float d = length(gl_PointCoord - 0.5);
-  vec3 c = mix(vec3(0.85, 1.0, 0.92), vec3(1.0, 0.55, 0.2), step(0.85, vA));
-  gl_FragColor = vec4(c * smoothstep(0.5, 0.0, d) * vA * 1.6, 1.0);
-}`;
-
 const FinalShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -342,44 +322,77 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     scene.add(b);
   });
 
-  /* ---------- 02 playbook: a planet of points ---------- */
+  /* ---------- 02 playbook: a chess king on the board, copper pawns around it ---------- */
   const z2 = -GAP * 2;
-  const P = isMobile ? 1100 : 2000;
-  const sp = new Float32Array(P * 3);
-  const ss = new Float32Array(P);
-  for (let i = 0; i < P; i++) {
-    const y = 1 - (i / (P - 1)) * 2;
-    const r = Math.sqrt(1 - y * y);
-    const th = i * 2.399963;
-    sp[i * 3] = Math.cos(th) * r * 3.2;
-    sp[i * 3 + 1] = y * 3.2;
-    sp[i * 3 + 2] = Math.sin(th) * r * 3.2;
-    ss[i] = Math.random();
-  }
-  const psGeo = new THREE.BufferGeometry();
-  psGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-  psGeo.setAttribute('aSeed', new THREE.BufferAttribute(ss, 1));
-  const psMat = new THREE.ShaderMaterial({
-    vertexShader: pointSphereVS,
-    fragmentShader: pointSphereFS,
-    uniforms: { uTime: { value: 0 }, uPR: { value: pr } },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
+  const lathe = (pts, mat) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 64), mat);
+  const obsidian = new THREE.MeshPhysicalMaterial({ color: 0x0d0f0e, roughness: 0.14, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6 });
+  const copperPiece = new THREE.MeshStandardMaterial({ color: 0xb87a40, metalness: 1, roughness: 0.34, envMapIntensity: 0.75 });
+
+  const king = new THREE.Group();
+  king.add(
+    lathe(
+      [[0, 0], [1.0, 0], [1.0, 0.12], [0.9, 0.2], [0.95, 0.3], [0.72, 0.42], [0.56, 0.56], [0.42, 1.3], [0.37, 1.9],
+       [0.62, 2.0], [0.64, 2.1], [0.4, 2.16], [0.48, 2.55], [0.52, 2.7], [0.3, 2.86], [0, 2.9]],
+      obsidian
+    )
+  );
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.63, 0.035, 16, 96), copperPiece);
+  band.rotation.x = Math.PI / 2;
+  band.position.y = 2.05;
+  const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.62, 0.14), copperPiece);
+  crossV.position.y = 3.18;
+  const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.14, 0.14), copperPiece);
+  crossH.position.y = 3.26;
+  king.add(band, crossV, crossH);
+
+  const pawn = () => {
+    const p = new THREE.Group();
+    p.add(lathe([[0, 0], [0.6, 0], [0.6, 0.1], [0.5, 0.18], [0.46, 0.26], [0.3, 0.36], [0.22, 0.8], [0.4, 0.9], [0.4, 0.97], [0.18, 1.02], [0, 1.02]], copperPiece));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 32), copperPiece);
+    head.position.y = 1.28;
+    p.add(head);
+    return p;
+  };
+
+  // board: dark lacquer squares with a copper inlay border
+  const bc = document.createElement('canvas');
+  bc.width = bc.height = 512;
+  const bg = bc.getContext('2d');
+  for (let y = 0; y < 8; y++)
+    for (let x = 0; x < 8; x++) {
+      bg.fillStyle = (x + y) % 2 ? '#0c0d0d' : '#232624';
+      bg.fillRect(x * 64, y * 64, 64, 64);
+    }
+  bg.strokeStyle = '#c98a4b';
+  bg.lineWidth = 6;
+  bg.strokeRect(3, 3, 506, 506);
+  const boardTex = new THREE.CanvasTexture(bc);
+  boardTex.colorSpace = THREE.SRGBColorSpace;
+  const boardTop = new THREE.MeshPhysicalMaterial({ map: boardTex, roughness: 0.45, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.35 });
+  const boardSide = new THREE.MeshStandardMaterial({ color: 0x0b0c0c, roughness: 0.4 });
+  const board = new THREE.Mesh(new THREE.BoxGeometry(6, 0.24, 6), [boardSide, boardSide, boardTop, boardSide, boardSide, boardSide]);
+  board.position.y = -0.12;
+
+  const chess = new THREE.Group();
+  chess.add(board, king);
+  king.position.set(0.375, 0, 0.375);
+  [[-1.875, 1.125], [1.875, -1.125], [-1.125, -1.875], [1.125, 1.875]].forEach(([x, z]) => {
+    const p = pawn();
+    p.position.set(x, 0, z);
+    chess.add(p);
   });
-  timeUniforms.push(psMat.uniforms.uTime);
-  const planet = new THREE.Group();
-  planet.add(new THREE.Points(psGeo, psMat));
-  const orbitMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.8, 0.4), transparent: true, opacity: 0.6 });
-  const o1 = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.012, 6, 220), orbitMat);
-  o1.rotation.x = 1.2;
-  const o2 = new THREE.Mesh(new THREE.TorusGeometry(5.1, 0.008, 6, 220), orbitMat);
-  o2.rotation.set(1.6, 0.5, 0);
-  planet.add(o1, o2);
-  planet.position.set(5.5, -0.3, z2 - 9);
-  planet.userData.baseX = 5.5;
-  sideObjects.push(planet);
-  scene.add(planet);
+  // one pawn already knocked over
+  const fallen = pawn();
+  fallen.rotation.z = Math.PI / 2;
+  fallen.position.set(-2.4, 0.3, -0.4);
+  chess.add(fallen);
+
+  chess.scale.setScalar(0.95);
+  chess.position.set(5.6, -2.0, z2 - 9);
+  chess.rotation.x = 0.32;
+  chess.userData.baseX = 5.6;
+  sideObjects.push(chess);
+  scene.add(chess);
 
   /* ---------- 03 ventures: drifting glass slabs ---------- */
   const z3 = -GAP * 3;
@@ -510,12 +523,23 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   composer.addPass(finalPass);
   composer.addPass(new OutputPass());
 
+  let lastW = 0;
+  let lastH = 0;
+  // height of the large viewport (address bar hidden): stays constant while a phone scrolls
+  const lvhProbe = document.createElement('div');
+  lvhProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:100vh;height:100lvh;visibility:hidden;pointer-events:none';
+  document.body.appendChild(lvhProbe);
   function resize() {
     const w = window.innerWidth;
-    const h = window.innerHeight;
+    const h = isMobile ? Math.max(lvhProbe.offsetHeight, window.innerHeight) : window.innerHeight;
+    // mobile browsers resize the viewport whenever the address bar slides in or out;
+    // ignore those height-only nudges so the scene does not jump while scrolling
+    if (isMobile && w === lastW && Math.abs(h - lastH) < 180) return;
+    lastW = w;
+    lastH = h;
     pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75);
     renderer.setPixelRatio(pr);
-    renderer.setSize(w, h);
+    renderer.setSize(w, h, false);
     composer.setPixelRatio(pr);
     composer.setSize(w, h);
     camera.aspect = w / h;
@@ -531,8 +555,11 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     knotScale = narrow ? 0.42 : 0.4 + 0.24 * squeeze;
     knot.scale.setScalar(knotScale);
     for (const o of sideObjects) o.position.x = o.userData.baseX * (0.45 + 0.55 * squeeze);
+    // phones: the board sits under the chips instead of off the right edge
+    chess.position.x = narrow ? 0.6 : chess.userData.baseX * (0.45 + 0.55 * squeeze);
+    chess.position.y = narrow ? -4.2 : -2.0;
+    chess.scale.setScalar(narrow ? 0.62 : 0.95);
     dMat.uniforms.uPR.value = pr;
-    psMat.uniforms.uPR.value = pr;
     bills.setPixelRatio(pr);
   }
   resize();
@@ -555,7 +582,8 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     },
     /** p: 0..1 scroll progress, v: scroll velocity (px/frame) */
     /** intro: 0 → camera parked far back, 1 → fly-in finished */
-    update(time, dt, p, v, intro) {
+    /** level: bass level of the soundtrack 0..1 */
+    update(time, dt, p, v, intro, level = 0) {
       vel += (THREE.MathUtils.clamp(v, -80, 80) - vel) * Math.min(1, dt * 5);
       smooth.lerp(mouse, Math.min(1, dt * 3));
       const s = p * (sections - 1);
@@ -573,7 +601,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
       // the glass knot drifts up and away instead of filling the lens
       const hs = THREE.MathUtils.smoothstep(s, 0, 0.38);
       knot.position.set(hs * 7, knotY + hs * 4.2, -1.4 - s * GAP * 0.8);
-      knot.scale.setScalar(knotScale * (1 - hs * 0.45));
+      knot.scale.setScalar(knotScale * (1 - hs * 0.45) * (1 + level * 0.06));
       knot.rotation.x = time * 0.25 + smooth.y * 0.6 + hs * 2.0;
       knot.rotation.y = time * 0.35 + smooth.x * 0.8 + hs * 3.0;
       knot.visible = s < 0.9;
@@ -611,8 +639,8 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
         t.obj.rotation.z += t.sz * dt;
         t.obj.position.y += Math.sin(time * 0.8 + t.bob) * 0.003;
       }
-      planet.rotation.y = time * 0.18;
-      planet.rotation.z = Math.sin(time * 0.3) * 0.15;
+      chess.rotation.y = time * 0.25;
+      king.position.y = Math.sin(time * 1.2) * 0.06;
       rings[0].rotation.set(time * 0.6, time * 0.2, 0);
       rings[1].rotation.set(0, time * 0.8, time * 0.3);
       rings[2].rotation.set(time * 0.9, 0, time * 0.5);
@@ -636,7 +664,8 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
       const res = bills.update(time, dt, s);
 
       finalPass.uniforms.uTime.value = time;
-      finalPass.uniforms.uAberration.value = 0.0012 + Math.min(Math.abs(vel) * 0.0001, 0.0045);
+      finalPass.uniforms.uAberration.value = 0.0012 + Math.min(Math.abs(vel) * 0.0001, 0.0045) + level * 0.0015;
+      bloom.strength = 0.75 + level * 0.55;
       composer.render(dt);
       return res;
     },

@@ -19,6 +19,7 @@ import '@fontsource/martian-mono/latin-600.css';
 import './style.css';
 import Lenis from 'lenis';
 import { createScene } from './scene.js';
+import { createSoundtrack } from './audio.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -257,6 +258,7 @@ $$('.tilt').forEach((el) => {
 
 /* ---------- boot ---------- */
 let world = null;
+const soundtrack = createSoundtrack({ button: $('.sound'), bars: $$('.sound .eq i') });
 let introProgress = 0;
 
 // flat scan of a real $100 (series 1969C), used as the face of every note
@@ -318,7 +320,9 @@ function loop(now) {
   const vel = lenis.velocity || 0;
   smoothVel += (clamp(vel, -60, 60) - smoothVel) * Math.min(1, dt * 6);
 
-  updateLayers(p, smoothVel);
+  // touch scroll velocity is spiky; feeding it to zoom and skew makes the page pulse on phones
+  const fxVel = isTouch ? 0 : smoothVel;
+  updateLayers(p, fxVel);
 
   // cursor
   dot.style.transform = `translate3d(${mouse.x}px, ${mouse.y}px, 0)`;
@@ -328,8 +332,10 @@ function loop(now) {
   updateMagnets();
 
   if (world) {
-    world.setMouse((mouse.x / window.innerWidth) * 2 - 1, -((mouse.y / window.innerHeight) * 2 - 1));
-    const { burnt } = world.update(time, dt, p, vel, introProgress);
+    // on touch screens a tap is not a pointer to follow: keep the scene centred
+    if (!isTouch) world.setMouse((mouse.x / window.innerWidth) * 2 - 1, -((mouse.y / window.innerHeight) * 2 - 1));
+    const level = soundtrack.update(p);
+    const { burnt } = world.update(time, dt, p, isTouch ? 0 : vel, introProgress, level);
     const dollars = Math.round(burnt * 100);
     if (dollars !== lastBurned) {
       lastBurned = dollars;
