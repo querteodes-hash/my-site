@@ -99,66 +99,124 @@ function finishLoading() {
 /* ---------- scroll ---------- */
 const space = $('#scroll-space');
 space.style.height = `${((N - 1) * SCROLL_PER_SECTION + 1) * 100}vh`;
-// one snap point per screen (used on touch devices)
-for (let k = 0; k < N; k++) {
-  const m = document.createElement('div');
-  m.className = 'snap-point';
-  m.style.top = `${k * SCROLL_PER_SECTION * 100}vh`;
-  space.append(m);
-}
 window.history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
 /* ---------- stops ----------
-   Desktop: a wheel or trackpad gesture plays one fixed-length move to the neighbouring screen;
-   everything else in that gesture (trackpad inertia included) is ignored.
-   Touch: the browser's own scroll-snap does it (see .snap in style.css), smooth and native. */
-const PAGE_MS = 1100;
+   The scroll is yours: the page follows the wheel and the finger. A single gesture can travel at
+   most one screen, and when you let go the page eases, unhurried, onto a screen: the next one if
+   you went at least 15% of the way, otherwise back where you started. */
+const PULL = 0.15;
+let gestureFrom = 0; // screen the current gesture started on
 let lastWheelEvt = -1e9;
-let paging = false; // a move is playing
-let gestureUsed = false; // this gesture already moved a screen
+let wheelActive = false;
+let paging = false;
+let touching = false;
+let dragFrom = 0;
+let touchY = 0;
+let touchScroller = null;
 const stepPx = () => lenis.limit / (N - 1);
-const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+// gentle sine-shaped ease: slow out of the screen, slow into the next one
+const easeInOut = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-function goTo(k, duration = PAGE_MS / 1000) {
+function goTo(k, duration = 1.8, easing = easeInOut) {
   k = clamp(k, 0, N - 1);
-  if (isTouch) {
-    window.scrollTo({ top: k * stepPx(), behavior: 'smooth' });
-    return;
-  }
   paging = true;
-  lenis.scrollTo(k * stepPx(), { duration, easing: easeInOut, lock: true, force: true, onComplete: () => (paging = false) });
+  lenis.scrollTo(k * stepPx(), { duration, easing, lock: true, force: true, onComplete: () => (paging = false) });
+}
+
+// after a gesture: next screen if pulled far enough, else back; time scales with what is left
+function release(from, now) {
+  const f = (now - from * stepPx()) / stepPx();
+  const k = Math.abs(f) >= PULL ? from + Math.sign(f) : from;
+  const left = Math.abs(k * stepPx() - now) / stepPx();
+  if (left < 0.002) return;
+  goTo(k, clamp(0.5 + left * 1.4, 0.6, 1.6), easeOut);
 }
 
 const lenis = new Lenis({
-  lerp: reduced ? 1 : 0.07,
+  lerp: reduced ? 1 : 0.08,
+  wheelMultiplier: 0.8,
   autoRaf: false,
   virtualScroll: ({ deltaY, event }) => {
     if (event.type !== 'wheel') return true;
-    if (event.cancelable) event.preventDefault();
     const t = event.timeStamp;
-    if (t - lastWheelEvt > 180) gestureUsed = false; // a pause means a new gesture
+    if (t - lastWheelEvt > 220 && !paging) gestureFrom = Math.round(lenis.targetScroll / stepPx());
     lastWheelEvt = t;
-    if (paging || gestureUsed || Math.abs(deltaY) < 3) return false;
-    gestureUsed = true;
-    goTo(Math.round(lenis.scroll / stepPx()) + Math.sign(deltaY));
-    return false;
+    wheelActive = true;
+    if (paging) {
+      if (event.cancelable) event.preventDefault();
+      return false;
+    }
+    // keep the gesture within one screen of where it began
+    const lo = Math.max(0, gestureFrom - 1) * stepPx();
+    const hi = Math.min(N - 1, gestureFrom + 1) * stepPx();
+    const next = lenis.targetScroll + deltaY;
+    if (next > hi || next < lo) {
+      if (event.cancelable) event.preventDefault();
+      const edge = next > hi ? hi : lo;
+      if (Math.abs(lenis.targetScroll - edge) > 0.5) lenis.scrollTo(edge, { lerp: 0.08 });
+      return false;
+    }
+    return true;
   },
 });
-if (isTouch) document.documentElement.classList.add('snap');
 
-// desktop: if the scrollbar is dragged, settle on the nearest screen afterwards
-let lastMove = 0;
+// wheel gesture over (no events for a moment): ease onto a screen
 function settle(now) {
-  if (isTouch || !introStart || paging || reduced) return;
-  if (lenis.isScrolling || now - lastMove < 250 || now - lastWheelEvt < 250) return;
-  const k = Math.round(lenis.scroll / stepPx());
-  if (Math.abs(lenis.scroll - k * stepPx()) > 2) goTo(k, 0.7);
+  if (!introStart || reduced || paging || touching || !wheelActive) return;
+  if (now - lastWheelEvtWall < 200) return;
+  wheelActive = false;
+  release(gestureFrom, lenis.targetScroll);
 }
+let lastWheelEvtWall = 0;
+window.addEventListener('wheel', () => (lastWheelEvtWall = performance.now()), { passive: true, capture: true });
+
+// touch: the page follows the finger (up to one screen), then eases onto a screen on release
+const scrollableParent = (el) => {
+  for (; el && el !== document.body; el = el.parentElement) {
+    const o = getComputedStyle(el).overflowY;
+    if ((o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  return null;
+};
+window.addEventListener(
+  'touchstart',
+  (e) => {
+    touchY = e.touches[0].clientY;
+    touchScroller = scrollableParent(e.target); // e.g. the project list on phones scrolls itself
+    if (touchScroller || paging) return;
+    touching = true;
+    dragFrom = Math.round(lenis.scroll / stepPx());
+  },
+  { passive: true }
+);
+window.addEventListener(
+  'touchmove',
+  (e) => {
+    if (touchScroller) return;
+    if (e.cancelable) e.preventDefault();
+    if (!touching || paging || !introStart) return;
+    const dy = (touchY - e.touches[0].clientY) * 1.6; // a little gain so a thumb-length swipe reaches the next screen
+    const y = clamp(dragFrom * stepPx() + dy, Math.max(0, dragFrom - 1) * stepPx(), Math.min(N - 1, dragFrom + 1) * stepPx());
+    lenis.scrollTo(y, { immediate: true, force: true });
+  },
+  { passive: false }
+);
+window.addEventListener(
+  'touchend',
+  () => {
+    if (!touching) return;
+    touching = false;
+    if (!paging && introStart) release(dragFrom, lenis.scroll);
+  },
+  { passive: true }
+);
+
 lenis.stop();
 if (new URLSearchParams(location.search).has('debug')) window.__lenis = lenis;
 
-lenis.on('scroll', () => (lastMove = performance.now()));
 $$('[data-goto]').forEach((a) =>
   a.addEventListener('click', (e) => {
     e.preventDefault();

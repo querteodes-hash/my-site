@@ -33,7 +33,7 @@ body {
   color: var(--ink);
   font-family: var(--f-display);
   -webkit-font-smoothing: antialiased;
-  /* clip, not hidden: hidden would turn body into its own scroller and break scroll-snap */
+  /* clip, not hidden: hidden would turn body into its own scroller */
   overflow-x: clip;
 }
 html.lenis,
@@ -1036,18 +1036,4 @@ body::before {
 
 .nw {
   white-space: nowrap;
-}
-
-/* touch devices: the browser snaps to one screen per swipe (native, so it stays smooth on iOS) */
-html.snap {
-  scroll-snap-type: y mandatory;
-}
-.snap-point {
-  position: absolute;
-  left: 0;
-  width: 1px;
-  height: 100vh;
-  pointer-events: none;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
