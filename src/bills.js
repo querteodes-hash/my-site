@@ -114,7 +114,7 @@ void main(){
 
   // 3D security ribbon: the bells and 100s slide as the note tilts
   vec3 col;
-  float ribbon = front ? 1.0 - smoothstep(0.0115, 0.0135, abs(uv.x - 0.615)) : 0.0;
+  float ribbon = 0.0; // classic series: no woven security ribbon
   if (ribbon > 0.0) {
     vec2 ruv = vec2(uv.x, fract(uv.y + dot(V, T) * 0.35 + dot(V, B) * 0.15));
     col = mix(sampleNote(uv, front), sampleNote(ruv, front), ribbon);

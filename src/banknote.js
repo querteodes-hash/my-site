@@ -14,9 +14,6 @@ const H = Math.round(W / NOTE_RATIO); // 870
 const SERIF = '"Bodoni Moda", "Times New Roman", Georgia, serif';
 const MONO = '"Martian Mono", ui-monospace, monospace';
 
-const INK = '#1f3227';
-const INK_SOFT = 'rgba(31, 60, 42, 0.6)';
-const GREEN = '#22603d';
 
 function rand(seed) {
   let s = seed;
@@ -31,74 +28,6 @@ function canvas(w, h) {
   c.width = w;
   c.height = h;
   return [c, c.getContext('2d')];
-}
-
-/* ---------- shared paper ---------- */
-function paper(g, tintStops, seed) {
-  const r = rand(seed);
-  g.fillStyle = '#dbe2cf';
-  g.fillRect(0, 0, W, H);
-
-  const tint = g.createLinearGradient(0, 0, W, 0);
-  tintStops.forEach(([o, c]) => tint.addColorStop(o, c));
-  g.fillStyle = tint;
-  g.fillRect(0, 0, W, H);
-
-  // soft blotches of tint, the way offset background inks overlap
-  for (let i = 0; i < 18; i++) {
-    const x = r() * W;
-    const y = r() * H;
-    const rad = 120 + r() * 320;
-    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
-    gr.addColorStop(0, i % 2 ? 'rgba(120, 175, 130, 0.22)' : 'rgba(200, 190, 140, 0.14)');
-    gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr;
-    g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-
-  // fine-line guilloche
-  for (let k = 0; k < 90; k++) {
-    g.strokeStyle = k % 3 ? 'rgba(30, 105, 60, 0.11)' : 'rgba(60, 120, 80, 0.08)';
-    g.lineWidth = 1;
-    g.beginPath();
-    for (let x = 0; x <= W; x += 6) {
-      const y = H / 2 + Math.sin(x * 0.006 + k * 0.21) * (40 + k * 4.2) * Math.cos(x * 0.0017 + k * 0.035);
-      x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-    }
-    g.stroke();
-  }
-
-  // red and blue security fibres
-  for (let i = 0; i < 520; i++) {
-    const x = r() * W;
-    const y = r() * H;
-    const a = r() * Math.PI * 2;
-    const len = 6 + r() * 14;
-    g.strokeStyle = r() > 0.5 ? 'rgba(200, 40, 50, 0.55)' : 'rgba(40, 70, 190, 0.55)';
-    g.lineWidth = 1;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.quadraticCurveTo(x + Math.cos(a + 1) * len * 0.6, y + Math.sin(a + 1) * len * 0.6, x + Math.cos(a) * len, y + Math.sin(a) * len);
-    g.stroke();
-  }
-}
-
-function microBorder(g, color) {
-  g.save();
-  g.strokeStyle = color;
-  g.lineWidth = 3;
-  g.strokeRect(26, 26, W - 52, H - 52);
-  g.lineWidth = 1;
-  g.strokeRect(36, 36, W - 72, H - 72);
-  g.fillStyle = color;
-  g.font = `600 11px ${MONO}`;
-  g.textBaseline = 'middle';
-  const strip = 'USA 100 · THE UNITED STATES OF AMERICA · 100 USA · ';
-  let s = '';
-  while (g.measureText(s).width < W) s += strip;
-  g.fillText(s, 40, 31);
-  g.fillText(s, 40, H - 31);
-  g.restore();
 }
 
 /* ---------- engraved portrait bust ---------- */
@@ -346,252 +275,264 @@ function signature(g, x, y, w, seed) {
   g.restore();
 }
 
-function feather(g, x, y, len, angle) {
-  g.save();
-  g.translate(x, y);
-  g.rotate(angle);
-  const grd = g.createLinearGradient(0, 0, len, 0);
-  grd.addColorStop(0, '#7a3d16');
-  grd.addColorStop(1, '#d7884a');
-  g.strokeStyle = grd;
-  g.lineWidth = 3;
-  g.beginPath();
-  g.moveTo(0, 0);
-  g.quadraticCurveTo(len * 0.5, -len * 0.08, len, -len * 0.04);
-  g.stroke();
-  g.lineWidth = 1.4;
-  for (let i = 0.15; i < 1; i += 0.018) {
-    const px = len * i;
-    const py = -len * 0.08 * Math.sin(i * Math.PI) - len * 0.02 * i;
-    const spread = Math.sin(i * Math.PI) * len * 0.12;
+/* ---------- classic engraving helpers ---------- */
+const ENG = '#2a2f2c'; // near-black engraving ink of the face
+const ENG_GREEN = '#2e5f43'; // green ink: seals, serials, the whole back
+const PAPER = '#ecebe2';
+
+function classicPaper(g, seed, tint) {
+  const r = rand(seed);
+  g.fillStyle = PAPER;
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = tint;
+  g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 380; i++) {
+    const x = r() * W;
+    const y = r() * H;
+    const a = r() * Math.PI * 2;
+    const len = 5 + r() * 12;
+    g.strokeStyle = r() > 0.5 ? 'rgba(190, 40, 50, 0.45)' : 'rgba(40, 70, 180, 0.45)';
+    g.lineWidth = 1;
     g.beginPath();
-    g.moveTo(px, py);
-    g.lineTo(px + spread * 0.5, py - spread);
-    g.moveTo(px, py);
-    g.lineTo(px + spread * 0.5, py + spread * 0.7);
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + Math.cos(a + 1) * len * 0.6, y + Math.sin(a + 1) * len * 0.6, x + Math.cos(a) * len, y + Math.sin(a) * len);
+    g.stroke();
+  }
+}
+
+// dense lathe work filling a rectangle (the "engraved" texture of borders and panels)
+function lathe(g, x, y, w, h, color, density = 4, amp = 6) {
+  g.save();
+  g.beginPath();
+  g.rect(x, y, w, h);
+  g.clip();
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+  g.strokeStyle = 'rgba(236, 235, 226, 0.55)';
+  g.lineWidth = 1;
+  for (let k = 0; k < h; k += density) {
+    g.beginPath();
+    for (let xx = x; xx <= x + w; xx += 4) {
+      const yy = y + k + Math.sin((xx - x) * 0.09 + k * 0.7) * amp * 0.5 + Math.sin((xx - x) * 0.023 + k) * amp;
+      xx === x ? g.moveTo(xx, yy) : g.lineTo(xx, yy);
+    }
     g.stroke();
   }
   g.restore();
 }
 
-function bellShape(g, x, y, s) {
+// spirograph rosette, optionally carrying a numeral
+function rosette(g, cx, cy, r, color, label, labelColor = PAPER) {
+  g.save();
+  g.fillStyle = color;
   g.beginPath();
-  g.moveTo(x - 0.5 * s, y + 0.45 * s);
-  g.bezierCurveTo(x - 0.42 * s, y + 0.1 * s, x - 0.36 * s, y - 0.45 * s, x, y - 0.5 * s);
-  g.bezierCurveTo(x + 0.36 * s, y - 0.45 * s, x + 0.42 * s, y + 0.1 * s, x + 0.5 * s, y + 0.45 * s);
-  g.closePath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = 'rgba(236, 235, 226, 0.5)';
+  g.lineWidth = 1;
+  for (let i = 0; i < 36; i++) {
+    g.beginPath();
+    g.ellipse(cx, cy, r * 0.92, r * 0.36, (i / 36) * Math.PI, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.strokeStyle = color;
+  g.lineWidth = 3;
+  g.beginPath();
+  g.arc(cx, cy, r + 5, 0, Math.PI * 2);
+  g.stroke();
+  if (label) {
+    g.fillStyle = labelColor;
+    g.strokeStyle = color;
+    g.lineWidth = 8;
+    g.font = `800 ${Math.round(r * (label.length > 2 ? 0.78 : 1.2))}px ${SERIF}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.strokeText(label, cx, cy + r * 0.06);
+    g.fillText(label, cx, cy + r * 0.06);
+  }
+  g.restore();
+}
+
+// white letters with a dark outline and drop shadow, like engraved banner lettering
+function engraved(g, text, x, y, size, color, opts = {}) {
+  g.save();
+  g.font = `${opts.weight || 800} ${size}px ${SERIF}`;
+  g.textAlign = opts.align || 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = color;
+  g.fillText(text, x + size * 0.05, y + size * 0.05);
+  g.lineWidth = Math.max(2, size * 0.06);
+  g.strokeStyle = color;
+  g.strokeText(text, x, y);
+  g.fillStyle = PAPER;
+  g.fillText(text, x, y);
+  // horizontal hatching inside the letters
+  g.globalCompositeOperation = 'source-atop';
+  g.restore();
+}
+
+function ornateFrame(g, color) {
+  const m = 26;
+  const band = 46;
+  lathe(g, m, m, W - m * 2, band, color, 4, 5);
+  lathe(g, m, H - m - band, W - m * 2, band, color, 4, 5);
+  lathe(g, m, m, band, H - m * 2, color, 4, 5);
+  lathe(g, W - m - band, m, band, H - m * 2, color, 4, 5);
+  g.strokeStyle = color;
+  g.lineWidth = 3;
+  g.strokeRect(m, m, W - m * 2, H - m * 2);
+  g.lineWidth = 2;
+  g.strokeRect(m + band + 6, m + band + 6, W - (m + band + 6) * 2, H - (m + band + 6) * 2);
+  g.lineWidth = 1;
+  g.strokeRect(m + band + 12, m + band + 12, W - (m + band + 12) * 2, H - (m + band + 12) * 2);
+  // scalloped inner edge
+  g.fillStyle = color;
+  for (let x = m + band + 20; x < W - m - band - 20; x += 18) {
+    g.beginPath();
+    g.arc(x, m + band + 6, 5, 0, Math.PI);
+    g.fill();
+    g.beginPath();
+    g.arc(x, H - m - band - 6, 5, Math.PI, 0);
+    g.fill();
+  }
 }
 
 /* ---------- front ---------- */
 function drawFront() {
   const [c, g] = canvas(W, H);
-  paper(
-    g,
-    [
-      [0, 'rgba(150, 190, 150, 0.32)'],
-      [0.3, 'rgba(170, 205, 185, 0.26)'],
-      [0.62, 'rgba(160, 200, 175, 0.24)'],
-      [1, 'rgba(205, 190, 135, 0.28)'],
-    ],
-    7
-  );
+  classicPaper(g, 7, 'rgba(120, 140, 125, 0.06)');
 
-  // faint large 100 in the left field
+  // fine background web across the field
   g.save();
-  g.font = `700 330px ${SERIF}`;
-  g.fillStyle = 'rgba(40, 120, 70, 0.12)';
-  g.textBaseline = 'middle';
-  g.fillText('100', 60, H * 0.62);
-  g.restore();
-
-  // Declaration text, faint, to the right of the portrait
-  g.save();
-  g.font = `italic 400 16px ${SERIF}`;
-  g.fillStyle = 'rgba(190, 130, 70, 0.6)';
-  const decl = [
-    'We hold these truths to be',
-    'self-evident, that all men are',
-    'created equal, that they are',
-    'endowed by their Creator with',
-    'certain unalienable Rights, that',
-    'among these are Life, Liberty',
-    'and the pursuit of Happiness.',
-  ];
-  decl.forEach((l, i) => g.fillText(l, 1035, 300 + i * 22));
-  g.restore();
-
-  microBorder(g, 'rgba(31, 80, 50, 0.85)');
-
-  // portrait backdrop
-  const px = W * 0.415;
-  const py = H * 0.53;
-  g.save();
-  const halo = g.createRadialGradient(px, py - 40, 40, px, py, 420);
-  halo.addColorStop(0, 'rgba(236, 242, 228, 0.8)');
-  halo.addColorStop(1, 'rgba(236, 242, 228, 0)');
-  g.fillStyle = halo;
-  g.fillRect(px - 420, py - 420, 840, 840);
-  const [lc, lg] = canvas(640, H);
-  lg.strokeStyle = 'rgba(30, 90, 55, 0.22)';
-  lg.lineWidth = 1;
-  for (let y = 60; y < H - 60; y += 5) {
-    lg.beginPath();
-    lg.moveTo(0, y);
-    lg.lineTo(640, y);
-    lg.stroke();
+  for (let k = 0; k < 70; k++) {
+    g.strokeStyle = 'rgba(40, 60, 50, 0.07)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 6) {
+      const y = H / 2 + Math.sin(x * 0.007 + k * 0.23) * (30 + k * 4) * Math.cos(x * 0.002 + k * 0.04);
+      x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
   }
-  lg.globalCompositeOperation = 'destination-in';
-  const lm = lg.createRadialGradient(320, H * 0.5, 120, 320, H * 0.5, 360);
-  lm.addColorStop(0, 'rgba(0,0,0,1)');
-  lm.addColorStop(1, 'rgba(0,0,0,0)');
-  lg.fillStyle = lm;
-  lg.fillRect(0, 0, 640, H);
-  g.drawImage(lc, px - 320, 0);
   g.restore();
-  g.drawImage(portrait(720), px - 360, py - 300, 720, 720);
 
-  // FEDERAL RESERVE NOTE / THE UNITED STATES OF AMERICA
+  ornateFrame(g, ENG);
+
+  // corner rosettes with 100
+  rosette(g, 150, 150, 82, ENG, '100');
+  rosette(g, W - 150, 150, 82, ENG, '100');
+  rosette(g, 150, H - 150, 82, ENG, '100');
+  rosette(g, W - 150, H - 150, 82, ENG, '100');
+
+  // top banner
+  lathe(g, W * 0.3, 92, W * 0.4, 58, ENG, 3, 3);
+  g.font = `700 30px ${SERIF}`;
+  g.fillStyle = PAPER;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillStyle = INK;
-  g.font = `700 28px ${SERIF}`;
-  g.fillText('FEDERAL  RESERVE  NOTE', W * 0.365, 80);
-  g.font = `700 52px ${SERIF}`;
-  g.fillText('THE UNITED STATES OF AMERICA', W * 0.365, 130);
+  g.fillText('FEDERAL  RESERVE  NOTE', W / 2, 122);
 
-  // left: legal tender text, Federal Reserve seal, serial
+  // big outlined 100 behind the treasury seal (the way TWO sits behind it on a $2)
+  g.save();
+  g.font = `800 300px ${SERIF}`;
+  g.lineWidth = 3;
+  g.strokeStyle = 'rgba(42, 47, 44, 0.32)';
+  g.fillStyle = 'rgba(42, 47, 44, 0.07)';
+  g.fillText('100', W * 0.745, H * 0.5);
+  g.strokeText('100', W * 0.745, H * 0.5);
+  g.restore();
+
+  // oval portrait with lathe ring
+  const px = W / 2;
+  const py = H * 0.42;
+  g.save();
+  g.beginPath();
+  g.ellipse(px, py, 175, 212, 0, 0, Math.PI * 2);
+  g.fillStyle = ENG;
+  g.fill();
+  g.strokeStyle = 'rgba(236,235,226,0.5)';
+  for (let i = 0; i < 90; i++) {
+    const a = (i / 90) * Math.PI * 2;
+    g.beginPath();
+    g.ellipse(px + Math.cos(a) * 7, py + Math.sin(a) * 7, 163, 200, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.beginPath();
+  g.ellipse(px, py, 150, 188, 0, 0, Math.PI * 2);
+  g.fillStyle = '#e4e3d9';
+  g.fill();
+  g.clip();
+  g.strokeStyle = 'rgba(40, 45, 42, 0.22)';
+  g.lineWidth = 1;
+  for (let y = py - 230; y < py + 230; y += 4) {
+    g.beginPath();
+    g.moveTo(px - 180, y);
+    g.lineTo(px + 180, y);
+    g.stroke();
+  }
+  g.drawImage(portrait(450), px - 225, py - 175, 450, 450);
+  g.restore();
+  g.font = `700 18px ${SERIF}`;
+  g.fillStyle = ENG;
+  g.fillText('FRANKLIN', px, py + 200);
+
+  // engraved legends under the portrait
+  engraved(g, 'THE UNITED STATES OF AMERICA', px, H * 0.79, 50, ENG);
+  engraved(g, 'ONE HUNDRED DOLLARS', px, H * 0.87, 38, ENG);
+
+  // left: legal tender text, black Federal Reserve seal, district numbers, serial
+  g.fillStyle = ENG;
   g.font = `700 17px ${SERIF}`;
-  g.fillStyle = INK_SOFT;
-  g.fillText('THIS NOTE IS LEGAL TENDER', W * 0.165, 250);
-  g.fillText('FOR ALL DEBTS, PUBLIC AND PRIVATE', W * 0.165, 274);
-
-  seal(g, W * 0.165, H * 0.56, 92, '#18241d', {
-    ring: 'FEDERAL RESERVE SYSTEM',
+  g.fillText('THIS NOTE IS LEGAL TENDER', W * 0.25, 210);
+  g.fillText('FOR ALL DEBTS, PUBLIC AND PRIVATE', W * 0.25, 234);
+  seal(g, W * 0.25, H * 0.48, 78, '#1d211f', {
+    ring: 'FEDERAL RESERVE BANK',
     draw: (gg, r) => {
-      gg.fillStyle = '#18241d';
+      gg.fillStyle = '#1d211f';
       gg.font = `900 ${Math.round(r * 0.62)}px ${SERIF}`;
       gg.fillText('Q', 0, 4);
     },
   });
+  g.font = `700 40px ${SERIF}`;
+  g.fillStyle = ENG;
+  g.fillText('17', W * 0.155, H * 0.48);
+  g.fillText('17', W * 0.845, H * 0.3);
 
-  g.fillStyle = GREEN;
+  g.fillStyle = ENG_GREEN;
   g.font = `600 40px ${MONO}`;
-  g.textAlign = 'left';
-  g.fillText('QT 13371337 Q', 96, 200);
-  g.textAlign = 'right';
-  g.font = `600 36px ${MONO}`;
-  g.fillText('QT 13371337 Q', W - 96, H * 0.645);
-  g.textAlign = 'center';
+  g.fillText('Q 13371337 T', W * 0.255, H * 0.6);
+  g.fillText('Q 13371337 T', W * 0.745, H * 0.24);
 
-  // corner numerals
-  g.font = `700 92px ${SERIF}`;
-  g.fillStyle = 'rgba(31, 60, 42, 0.9)';
-  g.textAlign = 'left';
-  g.fillText('100', 64, 110);
-  g.textAlign = 'right';
-  g.fillText('100', W - 64, 110);
-  g.textAlign = 'left';
-  g.font = `700 70px ${SERIF}`;
-  g.fillText('100', 64, H - 104);
-  g.textAlign = 'center';
-
-  // signatures
-  signature(g, W * 0.1, H * 0.84, 240, 3);
-  signature(g, W * 0.645, H * 0.84, 190, 11);
-  g.font = `700 13px ${SERIF}`;
-  g.fillStyle = INK_SOFT;
-  g.fillText('TREASURER OF THE UNITED STATES', W * 0.16, H * 0.9);
-  g.fillText('SECRETARY OF THE TREASURY', W * 0.69, H * 0.9);
-
-  // blue 3D security ribbon with bells and 100s
-  const rx = W * 0.615;
-  const rw = 54;
-  const rib = g.createLinearGradient(rx - rw / 2, 0, rx + rw / 2, 0);
-  rib.addColorStop(0, '#1d4fb0');
-  rib.addColorStop(0.5, '#3f86f0');
-  rib.addColorStop(1, '#1d4fb0');
-  g.fillStyle = rib;
-  g.fillRect(rx - rw / 2, 0, rw, H);
-  g.fillStyle = 'rgba(220, 235, 255, 0.92)';
-  g.font = `700 20px ${SERIF}`;
-  for (let y = 18, i = 0; y < H; y += 44, i++) {
-    if (i % 2) {
-      g.fillText('100', rx, y);
-    } else {
-      bellShape(g, rx, y, 26);
-      g.fill();
-    }
-  }
-
-  // copper inkwell + bell (colour-shifting ink in the shader)
-  const ix = W * 0.71;
-  const iy = H * 0.47;
-  g.save();
-  g.translate(ix, iy);
-  g.scale(0.82, 0.82);
-  g.translate(-ix, -iy);
-  feather(g, ix - 20, iy + 40, 300, -1.95);
-  const cu = g.createLinearGradient(ix - 90, iy - 100, ix + 90, iy + 100);
-  cu.addColorStop(0, '#e19a5b');
-  cu.addColorStop(0.5, '#a9561f');
-  cu.addColorStop(1, '#6e3212');
-  g.fillStyle = cu;
-  g.beginPath();
-  g.moveTo(ix - 70, iy + 95);
-  g.lineTo(ix - 92, iy - 20);
-  g.quadraticCurveTo(ix, iy - 70, ix + 92, iy - 20);
-  g.lineTo(ix + 70, iy + 95);
-  g.closePath();
-  g.fill();
-  g.fillRect(ix - 50, iy - 62, 100, 22);
-  g.fillStyle = '#c87a3c';
-  bellShape(g, ix, iy + 22, 92);
-  g.fill();
-  g.strokeStyle = 'rgba(60, 25, 8, 0.6)';
-  g.lineWidth = 2;
-  g.stroke();
-  g.restore();
-
-  // Treasury seal (green)
-  seal(g, W * 0.795, H * 0.3, 60, GREEN, {
+  // right: green Treasury seal over the outlined 100
+  seal(g, W * 0.745, H * 0.5, 70, ENG_GREEN, {
     ring: 'THESAUR · AMER · SEPTENT · SIGIL',
     draw: (gg, r) => {
-      gg.strokeStyle = GREEN;
+      gg.strokeStyle = ENG_GREEN;
       gg.lineWidth = 3;
       gg.beginPath();
       gg.moveTo(-r * 0.4, -r * 0.05);
       gg.lineTo(0, -r * 0.3);
       gg.lineTo(r * 0.4, -r * 0.05);
       gg.stroke();
-      gg.fillStyle = GREEN;
+      gg.fillStyle = ENG_GREEN;
       gg.fillRect(-r * 0.36, r * 0.05, r * 0.72, r * 0.08);
       gg.fillRect(-r * 0.04, r * 0.13, r * 0.08, r * 0.28);
     },
   });
+  g.fillStyle = ENG;
+  g.font = `700 16px ${SERIF}`;
+  g.fillText('WASHINGTON, D.C.', W * 0.745, H * 0.17);
+  g.font = `700 15px ${SERIF}`;
+  g.fillText('SERIES', W * 0.585, H * 0.58);
+  g.fillText('1990', W * 0.585, H * 0.61);
 
-  // watermark window with ghost portrait
-  const wx = W * 0.9;
-  const wy = H * 0.4;
-  g.save();
-  const wm = g.createRadialGradient(wx, wy, 10, wx, wy, 170);
-  wm.addColorStop(0, 'rgba(250, 248, 240, 0.9)');
-  wm.addColorStop(1, 'rgba(250, 248, 240, 0)');
-  g.fillStyle = wm;
-  g.fillRect(wx - 170, wy - 170, 340, 340);
-  g.globalAlpha = 0.09;
-  g.drawImage(portrait(300, true), wx - 150, wy - 140, 300, 300);
-  g.restore();
-
-  // big colour-shifting 100
-  const big = g.createLinearGradient(W - 500, H - 260, W - 90, H - 80);
-  big.addColorStop(0, '#d48a45');
-  big.addColorStop(0.5, '#9a4b18');
-  big.addColorStop(1, '#c4783a');
-  g.fillStyle = big;
-  g.font = `800 205px ${SERIF}`;
-  g.textAlign = 'right';
-  g.textBaseline = 'alphabetic';
-  g.fillText('100', W - 76, H - 72);
+  // signatures
+  signature(g, W * 0.17, H * 0.68, 200, 3);
+  signature(g, W * 0.7, H * 0.68, 200, 11);
+  g.font = `italic 400 14px ${SERIF}`;
+  g.fillStyle = ENG;
+  g.fillText('Treasurer of the United States.', W * 0.22, H * 0.72);
+  g.fillText('Secretary of the Treasury.', W * 0.75, H * 0.72);
 
   wear(g, 21);
   return c;
@@ -748,65 +689,52 @@ function independenceHall(w, h) {
 
 function drawBack() {
   const [c, g] = canvas(W, H);
-  paper(
-    g,
-    [
-      [0, 'rgba(110, 165, 120, 0.42)'],
-      [0.55, 'rgba(130, 180, 135, 0.34)'],
-      [1, 'rgba(190, 185, 120, 0.34)'],
-    ],
-    13
-  );
-  microBorder(g, 'rgba(25, 85, 50, 0.9)');
+  classicPaper(g, 13, 'rgba(90, 150, 110, 0.1)');
   greenField(g);
+  ornateFrame(g, ENG_GREEN);
+  rosette(g, 150, 150, 82, ENG_GREEN, '100');
+  rosette(g, W - 150, 150, 82, ENG_GREEN, '100');
+  rosette(g, 150, H - 150, 82, ENG_GREEN, '100');
+  rosette(g, W - 150, H - 150, 82, ENG_GREEN, '100');
 
+  // side panels with big numerals
+  lathe(g, 230, 250, 230, 370, ENG_GREEN, 4, 5);
+  lathe(g, W - 460, 250, 230, 370, ENG_GREEN, 4, 5);
+  g.font = `800 112px ${SERIF}`;
+  g.fillStyle = PAPER;
+  g.strokeStyle = ENG_GREEN;
+  g.lineWidth = 8;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillStyle = GREEN;
-  g.font = `700 60px ${SERIF}`;
-  g.fillText('THE UNITED STATES OF AMERICA', W * 0.42, 108);
-  g.font = `700 30px ${SERIF}`;
-  g.fillText('IN GOD WE TRUST', W * 0.42, 168);
-  g.font = `700 50px ${SERIF}`;
-  g.fillText('ONE HUNDRED DOLLARS', W * 0.42, H - 92);
+  g.strokeText('100', 345, H / 2);
+  g.fillText('100', 345, H / 2);
+  g.strokeText('100', W - 345, H / 2);
+  g.fillText('100', W - 345, H / 2);
 
-  // oval-less vignette behind the hall
-  const hx = W * 0.42;
-  const hall = independenceHall(1000, 622);
-  const vg = g.createRadialGradient(hx, H * 0.55, 60, hx, H * 0.55, 560);
-  vg.addColorStop(0, 'rgba(232, 240, 226, 0.85)');
-  vg.addColorStop(1, 'rgba(232, 240, 226, 0)');
-  g.fillStyle = vg;
-  g.fillRect(hx - 560, 0, 1120, H);
-  g.drawImage(hall, hx - 500, 205, 1000, 622 * 0.78);
+  engraved(g, 'THE UNITED STATES OF AMERICA', W / 2, 140, 54, ENG_GREEN);
+  g.font = `700 26px ${SERIF}`;
+  g.fillStyle = ENG_GREEN;
+  g.fillText('IN GOD WE TRUST', W / 2, 200);
+  engraved(g, 'ONE HUNDRED DOLLARS', W / 2, H - 120, 50, ENG_GREEN);
 
-  // giant gold 100
-  const gold = g.createLinearGradient(W * 0.72, 220, W * 0.95, 700);
-  gold.addColorStop(0, '#f1d58c');
-  gold.addColorStop(0.45, '#c9993f');
-  gold.addColorStop(1, '#e8c26a');
-  g.fillStyle = gold;
-  g.font = `800 300px ${SERIF}`;
-  g.textAlign = 'center';
-  g.fillText('100', W * 0.815, H * 0.5);
-  g.strokeStyle = 'rgba(120, 80, 20, 0.5)';
-  g.lineWidth = 3;
-  g.strokeText('100', W * 0.815, H * 0.5);
-
-  // corner numerals
-  g.fillStyle = GREEN;
-  g.font = `700 90px ${SERIF}`;
-  g.textAlign = 'left';
-  g.fillText('100', 64, 110);
-  g.fillText('100', 64, H - 104);
-  g.textAlign = 'right';
-  g.font = `700 70px ${SERIF}`;
-  g.fillText('100', W - 64, H - 104);
-
-  g.font = `700 22px ${SERIF}`;
-  g.textAlign = 'center';
-  g.fillStyle = 'rgba(47, 106, 76, 0.85)';
-  g.fillText('USA', W * 0.815, H * 0.72);
+  // Independence Hall in an oval vignette
+  const cx = W / 2;
+  const cy = H * 0.53;
+  g.save();
+  g.beginPath();
+  g.ellipse(cx, cy, 440, 215, 0, 0, Math.PI * 2);
+  g.fillStyle = ENG_GREEN;
+  g.fill();
+  g.beginPath();
+  g.ellipse(cx, cy, 424, 200, 0, 0, Math.PI * 2);
+  g.fillStyle = '#e3e8dc';
+  g.fill();
+  g.clip();
+  g.drawImage(independenceHall(860, 535), cx - 430, cy - 250, 860, 535 * 0.9);
+  g.restore();
+  g.font = `700 18px ${SERIF}`;
+  g.fillStyle = ENG_GREEN;
+  g.fillText('INDEPENDENCE HALL', cx, cy + 238);
 
   wear(g, 29);
   return c;
