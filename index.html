@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Querteo</title>
+    <meta name="description" content="Querteo — фаундер и CEO. Ныряй вглубь и смотри, как горят деньги." />
+    <meta name="theme-color" content="#040505" />
+    <meta property="og:title" content="Querteo" />
+    <meta property="og:description" content="Фаундер и CEO. Листай вглубь: деньги сгорают, видение остаётся." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <h1 class="sr-only">Querteo — фаундер и CEO</h1>
+
+    <!-- preloader -->
+    <div id="preloader" aria-hidden="true">
+      <div class="pl-serial">SERIES 2026 · QT 13371337 Q</div>
+      <div class="pl-count"><span class="pl-cur">$</span><span id="pl-num">000</span></div>
+      <div class="pl-label">печатаем деньги, которые ты сейчас сожжёшь</div>
+      <div class="pl-bar"><i id="pl-bar"></i></div>
+    </div>
+
+    <canvas id="webgl" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- HUD -->
+    <header class="hud hud-top">
+      <a href="#" class="logo magnetic" data-goto="0" data-cursor="домой">
+        <span class="logo-mark">Q</span><span class="logo-word">querteo</span>
+      </a>
+      <nav class="nav glass-pill">
+        <a href="#" data-goto="1" data-cursor="вглубь">обо мне</a>
+        <a href="#" data-goto="2" data-cursor="вглубь">подход</a>
+        <a href="#" data-goto="3" data-cursor="вглубь">проекты</a>
+        <a href="#" data-goto="5" data-cursor="вглубь">контакты</a>
+      </nav>
+      <div class="status glass-pill"><span class="pulse"></span>открыт к партнёрствам</div>
+    </header>
+
+    <div class="hud hud-bottom">
+      <div class="meter">
+        <span class="meter-k">глубина</span>
+        <b id="depth">0000</b><span class="meter-u">м</span>
+      </div>
+      <div class="meter burned">
+        <span class="meter-k">сожжено</span>
+        <b id="burned">$0</b>
+      </div>
+      <div class="sec">
+        <span class="sec-num"><b id="secnum">00</b> / 05</span>
+        <span id="secname">вход</span>
+        <span class="sec-bar"><i id="prog"></i></span>
+      </div>
+    </div>
+
+    <div class="side side-l" aria-hidden="true">листай вглубь ✶ деньги горят ✶ видение остаётся</div>
+    <div class="side side-r" aria-hidden="true">N° QT-13371337 · серия 2026</div>
+
+    <!-- the dive -->
+    <main id="stage">
+      <!-- 00 hero -->
+      <section class="layer layer-hero" data-name="вход">
+        <div class="hero-top">
+          <span class="chip glass-pill">фаундер и ceo</span>
+          <span class="chip glass-pill">видение · капитал · исполнение</span>
+        </div>
+        <div class="hero-spacer"></div>
+        <p class="hero-line" data-split>Превращаю смелые идеи в <em>компании</em></p>
+        <div class="scroll-hint">
+          <span class="mouse"><i></i></span>
+          <span>листай, чтобы сжечь деньги</span>
+        </div>
+      </section>
+
+      <!-- 01 about -->
+      <section class="layer" data-name="обо мне">
+        <article class="card glass tilt">
+          <span class="glare"></span>
+          <span class="eyebrow">обо мне</span>
+          <h2 class="big" data-split>Деньги сгорают. <span class="nw"><em>Видение</em></span> остаётся.</h2>
+          <p class="lead">
+            Я Querteo, фаундер и CEO. Строю компании с нуля: нахожу идею, на которую стоит ставить, собираю команду,
+            привлекаю капитал и запускаю. Каждый доллар на этой странице сгорает, пока ты листаешь. Капитал — это
+            топливо. Важно то, во что он превращается.
+          </p>
+          <div class="kv">
+            <div><b>Видение</b><span>куда мы идём</span></div>
+            <div><b>Команда</b><span>люди, которые делают</span></div>
+            <div><b>Капитал</b><span>топливо, а не цель</span></div>
+          </div>
+        </article>
+      </section>
+
+      <!-- 02 playbook -->
+      <section class="layer layer-left" data-name="подход">
+        <div class="stack-wrap">
+          <span class="eyebrow">что я делаю</span>
+          <h2 class="big" data-split>Мой <em>подход</em></h2>
+          <ul class="chips">
+            <li class="glass-pill magnetic">Видение и стратегия</li>
+            <li class="glass-pill magnetic">Фандрайзинг</li>
+            <li class="glass-pill magnetic">Продукт</li>
+            <li class="glass-pill magnetic">Найм</li>
+            <li class="glass-pill magnetic">Рост</li>
+            <li class="glass-pill magnetic">Выход на рынок</li>
+            <li class="glass-pill magnetic">Партнёрства</li>
+            <li class="glass-pill magnetic">Бренд</li>
+            <li class="glass-pill magnetic">Переговоры</li>
+            <li class="glass-pill magnetic">Операционка</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 03 ventures -->
+      <section class="layer" data-name="проекты">
+        <div class="works-wrap">
+          <div class="works-head">
+            <span class="eyebrow">проекты</span>
+            <h2 class="big" data-split>Что я <em>строю</em></h2>
+          </div>
+          <div class="works">
+            <a class="work glass tilt" href="#" data-goto="5" data-cursor="спросить">
+              <span class="glare"></span>
+              <span class="thumb t1"></span>
+              <span class="work-meta"><span>2026</span><span>стелс</span></span>
+              <span class="work-title">Стелс-режим</span>
+              <span class="work-desc">Строим прямо сейчас. Детали под NDA до запуска.</span>
+            </a>
+            <a class="work glass tilt" href="#" data-goto="5" data-cursor="в команду">
+              <span class="glare"></span>
+              <span class="thumb t2"></span>
+              <span class="work-meta"><span>скоро</span><span>найм</span></span>
+              <span class="work-title">Следующий проект</span>
+              <span class="work-desc">Ищу кофаундеров, операторов и первых инвесторов.</span>
+            </a>
+            <a class="work glass tilt" href="#" data-goto="5" data-cursor="обсудить">
+              <span class="glare"></span>
+              <span class="thumb t3"></span>
+              <span class="work-meta"><span>открыто</span><span>партнёры</span></span>
+              <span class="work-title">Твоя компания</span>
+              <span class="work-desc">Партнёрства, инвестиции и эдвайзинг. Приходи с идеей.</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 principles -->
+      <section class="layer layer-right" data-name="принципы">
+        <div class="nums-wrap">
+          <span class="eyebrow">принципы</span>
+          <div class="nums">
+            <div class="num glass"><b data-count="24" data-suffix="/7">0</b><span>живу миссией, а не графиком</span></div>
+            <div class="num glass"><b data-count="100" data-suffix="%">0</b><span>личная ставка в каждом деле</span></div>
+            <div class="num glass"><b data-count="1">0</b><span>правило: исполнение важнее идей</span></div>
+          </div>
+        </div>
+        <div class="marquee" aria-hidden="true">
+          <div class="marquee-track">
+            <span>QUERTEO ✶ ФАУНДЕР ✶ CEO ✶ ВИДЕНИЕ ✶ КАПИТАЛ ✶ ИСПОЛНЕНИЕ ✶ </span>
+            <span>QUERTEO ✶ ФАУНДЕР ✶ CEO ✶ ВИДЕНИЕ ✶ КАПИТАЛ ✶ ИСПОЛНЕНИЕ ✶ </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 contact -->
+      <section class="layer layer-contact" data-name="контакты">
+        <span class="eyebrow">контакты</span>
+        <h2 class="huge" data-split>Давай построим что-то <em>легендарное</em></h2>
+        <div class="links">
+          <a class="btn glass-pill magnetic" href="https://t.me/querteo" target="_blank" rel="noopener" data-cursor="написать">
+            <span>Telegram</span><i>↗</i>
+          </a>
+          <a class="btn glass-pill magnetic" href="https://github.com/querteodes-hash" target="_blank" rel="noopener" data-cursor="открыть">
+            <span>GitHub</span><i>↗</i>
+          </a>
+        </div>
+        <p class="foot">© 2026 Querteo. По пути вниз сожжено <span id="foot-burned">$0</span>. Видение остаётся.</p>
+      </section>
+    </main>
+
+    <div id="scroll-space"></div>
+
+    <div class="cursor" aria-hidden="true">
+      <div class="cursor-ring"><span class="cursor-label"></span></div>
+      <div class="cursor-dot"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
