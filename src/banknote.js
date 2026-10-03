@@ -277,8 +277,8 @@ function signature(g, x, y, w, seed) {
 
 /* ---------- classic engraving helpers ---------- */
 const ENG = '#2a2f2c'; // near-black engraving ink of the face
-const ENG_GREEN = '#2e5f43'; // green ink: seals, serials, the whole back
-const PAPER = '#ecebe2';
+const ENG_GREEN = '#2f6a49'; // green ink: seals, serials, the whole back
+const PAPER = '#d6d6c5'; // sampled from the scan so both faces are the same paper
 
 function classicPaper(g, seed, tint) {
   const r = rand(seed);
@@ -689,7 +689,7 @@ function independenceHall(w, h) {
 
 function drawBack() {
   const [c, g] = canvas(W, H);
-  classicPaper(g, 13, 'rgba(90, 150, 110, 0.1)');
+  classicPaper(g, 13, 'rgba(110, 140, 105, 0.08)');
   greenField(g);
   ornateFrame(g, ENG_GREEN);
   rosette(g, 150, 150, 82, ENG_GREEN, '100');
@@ -727,7 +727,7 @@ function drawBack() {
   g.fill();
   g.beginPath();
   g.ellipse(cx, cy, 424, 200, 0, 0, Math.PI * 2);
-  g.fillStyle = '#e3e8dc';
+  g.fillStyle = '#cfd3c1';
   g.fill();
   g.clip();
   g.drawImage(independenceHall(860, 535), cx - 430, cy - 250, 860, 535 * 0.9);
@@ -810,9 +810,12 @@ export function makeBanknoteTextures(maxAnisotropy = 8, frontImage = null) {
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   };
-  return {
+  const out = {
     front: make(frontImage || drawFront()),
-    back: make(drawBack()),
+    // with a real scan, both faces show it: a drawn back next to a photo reads as fake
+    back: frontImage ? null : make(drawBack()),
     texel: new THREE.Vector2(1 / W, 1 / H),
   };
+  if (!out.back) out.back = out.front;
+  return out;
 }

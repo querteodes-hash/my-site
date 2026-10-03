@@ -244,8 +244,9 @@ export function createBills(scene, { count, pixelRatio, textures, depth = 46, ga
       radius,
       angle,
       orbit: (Math.random() - 0.5) * 0.12,
-      start: Math.max(0.02 + Math.random() * 0.08, reach - 0.55 + (Math.random() - 0.5) * 0.2),
-      dur: 0.45 + Math.random() * 0.2,
+      // the notes you see on load ignite the moment the scroll starts; deeper ones as the camera nears
+      start: reach < 0.6 ? Math.random() * 0.025 : reach - 0.55 + (Math.random() - 0.5) * 0.2,
+      dur: reach < 0.6 ? 0.22 + Math.random() * 0.25 : 0.45 + Math.random() * 0.2,
       rot: new THREE.Euler(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28),
       spin: new THREE.Vector3((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.4),
       scale: 0.65 + Math.random() * 0.6,
@@ -335,8 +336,10 @@ export function createBills(scene, { count, pixelRatio, textures, depth = 46, ga
       let burnt = 0;
       for (let i = 0; i < count; i++) {
         const b = bills[i];
-        const target = Math.min(1, Math.max(0, (s - b.start) / b.dur));
-        b.burn += (target - b.burn) * Math.min(1, dt * 6);
+        // even a tiny scroll catches the edge
+        const raw = (s - b.start) / b.dur;
+        const target = raw > 0 ? Math.min(1, 0.06 + raw) : 0;
+        b.burn += (target - b.burn) * Math.min(1, dt * 10);
         burns[i] = b.burn;
         burnt += b.burn;
 

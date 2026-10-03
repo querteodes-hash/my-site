@@ -538,6 +538,11 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   resize();
   window.addEventListener('resize', resize);
 
+  // compile every shader and upload every texture now, behind the preloader,
+  // so the first scroll (when notes ignite and new objects come into view) never hitches
+  renderer.compile(scene, camera);
+  for (const tex of [notes.front, notes.back]) renderer.initTexture(tex);
+
   const mouse = new THREE.Vector2();
   const smooth = new THREE.Vector2();
   const tmpV = new THREE.Vector3();
