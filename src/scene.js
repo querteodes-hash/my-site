@@ -209,7 +209,7 @@ const FinalShader = {
 
 export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-  let pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75);
+  let pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.5);
   renderer.setPixelRatio(pr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -294,7 +294,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     [4.1, -2.4, -27, 1.2],
     [-5.8, 0.4, -34, 1.4],
   ].forEach(([x, y, z, sc], i) => {
-    const b = money.brick();
+    const b = money.brick({ burns: true });
     b.position.set(x, y, z);
     b.scale.setScalar(sc);
     b.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
@@ -312,7 +312,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     [-4.4, -2.5, z1 - 10, 1.1],
     [4.6, 2.5, z1 - 3, 1.0],
   ].forEach(([x, y, z, sc], i) => {
-    const b = money.brick();
+    const b = money.brick({ burns: true });
     b.position.set(x, y, z);
     b.scale.setScalar(sc);
     b.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
@@ -506,7 +506,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
 
   /* ---------- the money ---------- */
   const bills = createBills(scene, {
-    count: isMobile ? 48 : 96,
+    count: isMobile ? 48 : 72,
     depth: 46,
     gap: GAP,
     pixelRatio: pr,
@@ -514,7 +514,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   });
 
   /* ---------- post ---------- */
-  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: isMobile ? 2 : 4 });
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 2 });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.75, 0.55, 0.82);
@@ -537,7 +537,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
     if (isMobile && w === lastW && Math.abs(h - lastH) < 180) return;
     lastW = w;
     lastH = h;
-    pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75);
+    pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.5);
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     composer.setPixelRatio(pr);
@@ -568,6 +568,7 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   // compile every shader and upload every texture now, behind the preloader,
   // so the first scroll (when notes ignite and new objects come into view) never hitches
   renderer.compile(scene, camera);
+  const cullables = [...new Set([...sideObjects, ...spinners.map((x) => x.obj), ...tumblers.map((x) => x.obj), orb, shell])];
   for (const tex of [notes.front, notes.back]) renderer.initTexture(tex);
 
   const mouse = new THREE.Vector2();
@@ -633,6 +634,19 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
         sObj.obj.rotation.y += sObj.sy * dt;
         sObj.obj.position.y += Math.sin(time + sObj.bob) * 0.0025;
       }
+      // bundles ignite well before the camera reaches them, so the fire is seen, not missed
+      for (const t of tumblers) {
+        const u = t.obj.userData.burn;
+        if (!u) continue;
+        const reach = (6 - t.obj.position.z) / GAP;
+        const b = THREE.MathUtils.clamp((s - (reach - 0.85)) / 0.7, 0, 1);
+        u.uBurn.value += (b - u.uBurn.value) * Math.min(1, dt * 8);
+        u.uTime.value = time;
+        t.obj.updateMatrixWorld();
+        u.uInv.value.copy(t.obj.matrixWorld).invert();
+        t.obj.visible = t.obj.visible && u.uBurn.value < 0.995;
+        if (u.uBurn.value > 0.02 && u.uBurn.value < 0.97 && t.obj.visible) bills.emitAt(t.obj.position, 1.0 * t.obj.scale.x, 0.4, dt * 30);
+      }
       for (const t of tumblers) {
         t.obj.rotation.x += t.sx * dt;
         t.obj.rotation.y += t.sy * dt;
@@ -662,6 +676,12 @@ export function createScene(canvas, { sections, isMobile, noteFront = null }) {
 
       // money ignites as the camera flies through it
       const res = bills.update(time, dt, s);
+
+      // draw only what is near the camera: far sections are lost in the fog anyway
+      for (const o of cullables) {
+        const ahead = camZ - o.position.z;
+        o.visible = ahead > -8 && ahead < 52 && !(o.userData.burn && o.userData.burn.uBurn.value >= 0.995);
+      }
 
       finalPass.uniforms.uTime.value = time;
       finalPass.uniforms.uAberration.value = 0.0012 + Math.min(Math.abs(vel) * 0.0001, 0.0045) + level * 0.0015;

@@ -84,6 +84,65 @@ function mirrored(tex) {
   return t;
 }
 
+/*
+  Burn for solid money: every material of one brick shares a uniform set. The fragment works in the
+  brick's own space (uInv), so the fire front crosses the stack, the strap and the top note as one.
+*/
+const BURN_VERT_HEAD = /* glsl */ `
+varying vec3 vBW;
+`;
+const BURN_FRAG_HEAD = /* glsl */ `
+uniform float uBurn;
+uniform float uTime;
+uniform vec3 uOrigin;
+uniform mat4 uInv;
+varying vec3 vBW;
+float bh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float bn(vec3 p){
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(bh(i), bh(i + vec3(1,0,0)), f.x), mix(bh(i + vec3(0,1,0)), bh(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(bh(i + vec3(0,0,1)), bh(i + vec3(1,0,1)), f.x), mix(bh(i + vec3(0,1,1)), bh(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+float bGlow = 0.0;
+`;
+const BURN_FRAG_BODY = /* glsl */ `
+{
+  vec3 lp = (uInv * vec4(vBW, 1.0)).xyz;
+  vec3 q = lp / vec3(NOTE_W_, 0.6, NOTE_H_) + 0.5;
+  float n = bn(lp * 3.2 + uOrigin * 9.0) * 0.6 + bn(lp * 9.0 - uTime * 0.3) * 0.25;
+  float d = length((q - uOrigin) * vec3(1.0, 0.5, 0.45)) + (n - 0.42) * 0.42;
+  float e = d - (uBurn * 1.7 - 0.28);
+  if (e < 0.0) discard;
+  float on = step(0.001, uBurn);
+  bGlow = (1.0 - smoothstep(0.0, 0.045, e)) * on;
+  float charr = (1.0 - smoothstep(0.0, 0.2, e)) * on;
+  float scorch = (1.0 - smoothstep(0.0, 0.34, e)) * on;
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.36, 0.18), scorch * 0.8);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02, 0.014, 0.01), charr);
+}
+`;
+
+function burnable(material, uniforms) {
+  const m = material.clone();
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = BURN_VERT_HEAD + shader.vertexShader.replace(
+      '#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\n  vBW = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+    );
+    const body = BURN_FRAG_BODY.replace('NOTE_W_', NOTE_W.toFixed(3)).replace('NOTE_H_', NOTE_H.toFixed(3));
+    shader.fragmentShader = BURN_FRAG_HEAD +
+      shader.fragmentShader
+        .replace('#include <map_fragment>', '#include <map_fragment>\n' + body)
+        .replace(
+          '#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n  float flick = 0.75 + 0.25 * sin(uTime * 15.0 + vBW.x * 9.0 + vBW.y * 7.0);\n  totalEmissiveRadiance += mix(vec3(1.0, 0.16, 0.01), vec3(1.0, 0.62, 0.2), bGlow) * bGlow * 3.2 * flick;'
+        );
+  };
+  m.customProgramCacheKey = () => 'money-burn';
+  return m;
+}
+
 export function createMoneyKit(notes) {
   const edge = edgeTexture();
   const edgeEnd = edge.clone();
@@ -119,22 +178,41 @@ export function createMoneyKit(notes) {
     return geo;
   }
 
-  function note(bend, seed) {
+  function note(bend, seed, front = noteFront, back = noteBack) {
     const g = new THREE.Group();
     const geo = noteGeometry(bend, seed);
-    g.add(new THREE.Mesh(geo, noteFront), new THREE.Mesh(geo, noteBack));
+    g.add(new THREE.Mesh(geo, front), new THREE.Mesh(geo, back));
     return g;
   }
 
-  function brick() {
+  function brick({ burns = false } = {}) {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(brickGeo, brickMats);
+    let mats = brickMats;
+    let sMat = strapMat;
+    let nF = noteFront;
+    let nB = noteBack;
+    if (burns) {
+      const u = {
+        uBurn: { value: 0 },
+        uTime: { value: 0 },
+        uOrigin: { value: new THREE.Vector3(Math.random() < 0.5 ? 0 : 1, 0.5, Math.random()) },
+        uInv: { value: new THREE.Matrix4() },
+      };
+      const cache = new Map();
+      const b = (m) => (cache.has(m) ? cache.get(m) : cache.set(m, burnable(m, u)).get(m));
+      mats = brickMats.map(b);
+      sMat = b(strapMat);
+      nF = b(noteFront);
+      nB = b(noteBack);
+      g.userData.burn = u;
+    }
+    const body = new THREE.Mesh(brickGeo, mats);
     g.add(body);
-    const band = new THREE.Mesh(strapGeo, strapMat);
+    const band = new THREE.Mesh(strapGeo, sMat);
     band.position.x = (Math.random() - 0.5) * 0.12;
     g.add(band);
     // the top note never sits perfectly square
-    const top = note(0.015, Math.random());
+    const top = note(0.015, Math.random(), nF, nB);
     top.rotation.set(-Math.PI / 2, 0, (Math.random() - 0.5) * 0.08);
     top.position.set((Math.random() - 0.5) * 0.06, BRICK_T / 2 + 0.004, (Math.random() - 0.5) * 0.04);
     g.add(top);
