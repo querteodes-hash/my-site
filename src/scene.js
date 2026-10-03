@@ -227,7 +227,7 @@ const FinalShader = {
     }`,
 };
 
-export function createScene(canvas, { sections, isMobile }) {
+export function createScene(canvas, { sections, isMobile, noteFront = null }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   let pr = Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75);
   renderer.setPixelRatio(pr);
@@ -302,7 +302,7 @@ export function createScene(canvas, { sections, isMobile }) {
   heroGroup.add(knot);
 
   /* ---------- the money: printed notes + solid cash bricks ---------- */
-  const notes = makeBanknoteTextures(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
+  const notes = makeBanknoteTextures(Math.min(8, renderer.capabilities.getMaxAnisotropy()), noteFront);
   const money = createMoneyKit(notes);
   const tumblers = []; // bricks and notes that tumble in place
 

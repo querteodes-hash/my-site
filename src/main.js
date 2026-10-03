@@ -259,7 +259,18 @@ $$('.tilt').forEach((el) => {
 let world = null;
 let introProgress = 0;
 
+// flat scan of a real $100 (series 1969C), used as the face of every note
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 async function boot() {
+  const notePromise = loadImage('/notes/100-front.jpg');
   try {
     await Promise.race([
       Promise.all([
@@ -277,8 +288,9 @@ async function boot() {
   } catch {
     /* fall back to system fonts */
   }
+  const noteFront = await Promise.race([notePromise, new Promise((r) => setTimeout(() => r(null), 6000))]);
   try {
-    world = createScene($('#webgl'), { sections: N, isMobile });
+    world = createScene($('#webgl'), { sections: N, isMobile, noteFront });
   } catch (err) {
     console.error('WebGL unavailable', err);
     document.documentElement.classList.add('no-webgl');

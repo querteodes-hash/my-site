@@ -799,14 +799,20 @@ function wear(g, seed) {
   g.putImageData(img, 0, 0);
 }
 
-export function makeBanknoteTextures(maxAnisotropy = 8) {
+/** frontImage: a flat scan of the real note (public/notes/100-front.jpg); falls back to the drawn face */
+export function makeBanknoteTextures(maxAnisotropy = 8, frontImage = null) {
   const make = (cv) => {
-    const t = new THREE.CanvasTexture(cv);
+    const t = cv instanceof HTMLCanvasElement ? new THREE.CanvasTexture(cv) : new THREE.Texture(cv);
+    t.needsUpdate = true;
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = maxAnisotropy;
     t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   };
-  return { front: make(drawFront()), back: make(drawBack()), texel: new THREE.Vector2(1 / W, 1 / H) };
+  return {
+    front: make(frontImage || drawFront()),
+    back: make(drawBack()),
+    texel: new THREE.Vector2(1 / W, 1 / H),
+  };
 }
