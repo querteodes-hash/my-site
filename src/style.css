@@ -802,8 +802,8 @@ body::before {
 }
 .marquee {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: -12%;
+  right: -12%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
   overflow: hidden;
   transform: rotate(-2deg);

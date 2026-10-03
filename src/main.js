@@ -102,11 +102,75 @@ space.style.height = `${((N - 1) * SCROLL_PER_SECTION + 1) * 100}vh`;
 window.history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
-const lenis = new Lenis({ lerp: reduced ? 1 : 0.07, wheelMultiplier: 0.85, touchMultiplier: 1.4, autoRaf: false });
+/* ---------- stops: one gesture moves one screen, and the page always settles on a screen ---------- */
+let gestureFrom = 0; // section the current wheel gesture started on
+let lastWheel = 0;
+let lastWheelEvt = -1e9;
+let lastMove = performance.now();
+let touching = false;
+let snapping = false;
+let dir = 1;
+const stepPx = () => lenis.limit / (N - 1);
+
+const lenis = new Lenis({
+  lerp: reduced ? 1 : 0.07,
+  wheelMultiplier: 0.85,
+  touchMultiplier: 1.4,
+  autoRaf: false,
+  // wheel and trackpad: never travel more than one screen per gesture
+  virtualScroll: ({ deltaY, event }) => {
+    if (event.type !== 'wheel') return true;
+    // gesture boundaries use the event's own timestamp, so a slow frame cannot split one fling in two
+    const t = event.timeStamp;
+    if (t - lastWheelEvt > 260) gestureFrom = Math.round(lenis.targetScroll / stepPx());
+    lastWheelEvt = t;
+    lastWheel = performance.now();
+    snapping = false;
+    const lo = Math.max(0, gestureFrom - 1) * stepPx();
+    const hi = Math.min(N - 1, gestureFrom + 1) * stepPx();
+    const next = lenis.targetScroll + deltaY; // deltaY already carries wheelMultiplier
+    if ((deltaY > 0 && next > hi) || (deltaY < 0 && next < lo)) {
+      // park exactly on the neighbouring screen and swallow the rest of the fling;
+      // Lenis does not cancel an event it was told to skip, so the native scroll is blocked here
+      if (event.cancelable) event.preventDefault();
+      const edge = deltaY > 0 ? hi : lo;
+      if (Math.abs(lenis.targetScroll - edge) > 1) lenis.scrollTo(edge, { lerp: 0.07 });
+      return false;
+    }
+    return true;
+  },
+});
+window.addEventListener('touchstart', () => ((touching = true), (snapping = false)), { passive: true });
+window.addEventListener('touchend', () => ((touching = false), (lastMove = performance.now())), { passive: true });
+
+function settle(now) {
+  if (!introStart || touching || snapping || reduced) return;
+  if (lenis.isScrolling || now - lastMove < 220 || now - lastWheel < 260) return;
+  const s = lenis.targetScroll / stepPx();
+  // go on to the next screen once you are a fifth of the way there, otherwise fall back
+  const k = clamp(dir > 0 ? Math.ceil(s - 0.2) : Math.floor(s + 0.2), 0, N - 1);
+  const y = k * stepPx();
+  if (Math.abs(lenis.scroll - y) < 2) return;
+  snapping = true;
+  lenis.scrollTo(y, {
+    duration: 0.9,
+    easing: (t) => 1 - Math.pow(1 - t, 3),
+    onComplete: () => (snapping = false),
+  });
+}
 lenis.stop();
 if (new URLSearchParams(location.search).has('debug')) window.__lenis = lenis;
 
 const sectionY = (k) => (k / (N - 1)) * lenis.limit;
+let prevScroll = 0;
+lenis.on('scroll', () => {
+  const d = lenis.scroll - prevScroll;
+  if (Math.abs(d) > 0.5 && !snapping) {
+    dir = Math.sign(d);
+    lastMove = performance.now();
+  }
+  prevScroll = lenis.scroll;
+});
 $$('[data-goto]').forEach((a) =>
   a.addEventListener('click', (e) => {
     e.preventDefault();
@@ -313,6 +377,7 @@ function loop(now) {
   lastT = now;
   const time = now / 1000;
   lenis.raf(now);
+  settle(now);
 
   // camera fly-in after the preloader: time-based, so it takes the same 2.4 s at any frame rate
   introProgress = introStart ? 1 - Math.pow(1 - clamp((now - introStart) / 2400, 0, 1), 3) : 0;
