@@ -103,13 +103,14 @@ window.history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
 /* ---------- stops ----------
-   The scroll is yours: the page follows the wheel and the finger. A single gesture can travel at
-   most one screen, and when you let go the page eases, unhurried, onto a screen: the next one if
-   you went at least 15% of the way, otherwise back where you started. */
+   Wheel / trackpad: free scroll, but one gesture can carry you at most to the next screen in that
+   direction; going further takes a new gesture, and nothing moves on its own.
+   Touch: the page follows the finger (up to one screen) and on release eases onto a screen:
+   the next one if you went at least 15% of the way, otherwise back. */
 const PULL = 0.15;
-let gestureFrom = 0; // screen the current gesture started on
+let wheelLo = 0;
+let wheelHi = 0;
 let lastWheelEvt = -1e9;
-let wheelActive = false;
 let paging = false;
 let touching = false;
 let dragFrom = 0;
@@ -119,6 +120,12 @@ const stepPx = () => lenis.limit / (N - 1);
 // gentle sine-shaped ease: slow out of the screen, slow into the next one
 const easeInOut = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+// bounds for a wheel gesture starting at y: the screens just behind and just ahead
+function bounds(y) {
+  const p = y / stepPx();
+  return [Math.max(0, Math.ceil(p - 0.002) - 1) * stepPx(), Math.min(N - 1, Math.floor(p + 0.002) + 1) * stepPx()];
+}
 
 function goTo(k, duration = 1.8, easing = easeInOut) {
   k = clamp(k, 0, N - 1);
@@ -142,20 +149,17 @@ const lenis = new Lenis({
   virtualScroll: ({ deltaY, event }) => {
     if (event.type !== 'wheel') return true;
     const t = event.timeStamp;
-    if (t - lastWheelEvt > 220 && !paging) gestureFrom = Math.round(lenis.targetScroll / stepPx());
+    if (t - lastWheelEvt > 220 && !paging) [wheelLo, wheelHi] = bounds(lenis.targetScroll); // a pause = new gesture
     lastWheelEvt = t;
-    wheelActive = true;
     if (paging) {
       if (event.cancelable) event.preventDefault();
       return false;
     }
-    // keep the gesture within one screen of where it began
-    const lo = Math.max(0, gestureFrom - 1) * stepPx();
-    const hi = Math.min(N - 1, gestureFrom + 1) * stepPx();
+    // keep the gesture within the screens just behind and just ahead of where it began
     const next = lenis.targetScroll + deltaY;
-    if (next > hi || next < lo) {
+    if (next > wheelHi || next < wheelLo) {
       if (event.cancelable) event.preventDefault();
-      const edge = next > hi ? hi : lo;
+      const edge = next > wheelHi ? wheelHi : wheelLo;
       if (Math.abs(lenis.targetScroll - edge) > 0.5) lenis.scrollTo(edge, { lerp: 0.08 });
       return false;
     }
@@ -163,15 +167,6 @@ const lenis = new Lenis({
   },
 });
 
-// wheel gesture over (no events for a moment): ease onto a screen
-function settle(now) {
-  if (!introStart || reduced || paging || touching || !wheelActive) return;
-  if (now - lastWheelEvtWall < 200) return;
-  wheelActive = false;
-  release(gestureFrom, lenis.targetScroll);
-}
-let lastWheelEvtWall = 0;
-window.addEventListener('wheel', () => (lastWheelEvtWall = performance.now()), { passive: true, capture: true });
 
 // touch: the page follows the finger (up to one screen), then eases onto a screen on release
 const scrollableParent = (el) => {
@@ -423,7 +418,6 @@ function loop(now) {
   lastT = now;
   const time = now / 1000;
   lenis.raf(now);
-  settle(now);
 
   // camera fly-in after the preloader: time-based, so it takes the same 2.4 s at any frame rate
   introProgress = introStart ? 1 - Math.pow(1 - clamp((now - introStart) / 2400, 0, 1), 3) : 0;
